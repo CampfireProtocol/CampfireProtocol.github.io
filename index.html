@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <!-- <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'unsafe-inline'; style-src 'unsafe-inline'"/> -->
+    <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0">
+    <meta http-equiv="Cache-Control" content="post-check=0, pre-check=0">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">    
+    <meta name="referrer" content="no-referrer" />
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Browse.html</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+            background-color: #f6f6f6;
+            overflow: hidden;
+        }
+
+        #browser {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        #chrome-bar {
+            background-color: #f1f1f1;
+            padding: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 2;
+        }
+
+        #back-button,
+        #forward-button,
+        #refresh-button {
+            background-color: #fff;
+            border: none;
+            margin-right: 8px;
+            cursor: pointer;
+            font-size: 20px;
+        }
+
+        #back-button::before {
+            content: "←"; /* Left arrow: &#8592; */
+        }
+
+        #forward-button::before {
+            content: "→"; /* Right arrow: &#8594; */
+        }
+
+        #refresh-button::before {
+            content: "↺"; /* Circular arrow: &#8635; */
+        }
+
+        #url-input {
+            flex: 1;
+            border: none;
+            padding: 6px;
+            margin: 0;
+            font-size: 16px;
+            outline: none;
+        }
+
+        #url-input:focus {
+            border-bottom: 2px solid #0078d4;
+        }
+
+        #content {
+            flex: 1;
+            overflow: auto;
+            position: relative;
+        }
+
+        #webpage {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="browser">
+        <div id="chrome-bar">
+            <button id="back-button" disabled></button>
+            <button id="forward-button" disabled></button>
+            <button id="refresh-button"></button>
+            <input id="url-input" type="text" value="https://www.wikipeida.org">
+        </div>
+        <div id="content">
+            <iframe id="webpage" frameborder="0"></iframe>
+        </div>
+    </div>
+
+    <script id="x_loader">
+        window.addEventListener('error', function(e) {
+            console.log("parent window global exception:",e);
+          });
+          document.addEventListener('error', function(e) {
+            console.log("parent window global exception:",e);
+          });
+      
+        /*
+          window.addEventListener("beforeunload", function(event) {
+            console.log("!going:",event.target);
+            event.preventDefault();
+            event['returnValue']="Click Cancle to Keep Your Reward Questions.";
+          });
+      window.addEventListener('pushstate', pushUrl);
+      window.addEventListener('popstate', pushUrl);
+      window.onpopstate = function(event) {
+        console.log('location: ',document.location,', state: ',JSON.stringify(event.state))
+      }*/
+      
+      
+      if (!window.base_fetch) {
+        window.base_fetch = fetch;
+      }
+      
+      // Create a new fetch method that acts as a proxy
+      window.fetch = function (url, options) {
+        // You can add any custom logic here before making the actual fetch request
+        // For example, you can modify headers or do additional processing
+        
+        // Call the original fetch method (window.base_fetch) with the provided arguments
+        return window.base_fetch(url, options)
+          .then((res) => {
+            // Add your custom logic here after the fetch response is received
+            // For example, you can log headers or do additional processing
+            const headers = JSON.parse(res.headers.get('cors-received-headers'));
+            console.log(headers);
+            return res.json();
+          });
+      };
+      
+      // Redefine XMLHttpRequest to use the new fetch
+      (function () {
+        // Store the original XMLHttpRequest constructor
+        var OldXMLHttpRequest = window.XMLHttpRequest;
+      
+        // Create a new XMLHttpRequest constructor
+        function NewXMLHttpRequest() {
+          var xhr = new OldXMLHttpRequest();
+      
+          // Replace the original xhr's send method with a custom implementation
+          xhr.send = function () {
+            // You can add any custom logic here before sending the request
+            // For example, you can modify headers or do additional processing
+      
+            // Call the overridden fetch method and pass the arguments
+            return window.fetch.apply(window, arguments);
+          };
+      
+          return xhr;
+        }
+      
+        // Replace the global XMLHttpRequest with the new constructor
+        window.XMLHttpRequest = NewXMLHttpRequest;
+      })();
+
+      function corsProxyRequest(){ 
+        this.proxy1 = "https://www.whateverorigin.org/get?url=";
+        this.loading_new_page = false;
+        this.x_loader = window.x_loader;
+      
+        this.blobReciver = function(myResponse, myDest, member) {
+          reader = new FileReader();
+          //console.log("blob:",myBlob);
+          new Promise((resolve, reject) => {
+            var fr = new FileReader();  
+            fr.onload = () => {
+              //console.log("data-uri:",fr.result);
+              myDest[member] = fr.result;       
+            };
+            fr.readAsDataURL(myResponse);
+          }); 
+        }
+      
+        this.textReciver = function(myText, myDest, member, uri) {
+          //console.log("got text:",myText);
+          //console.log(myDest,member);
+          //console.log(myDest[member]);
+          console.log("fixing textReciver:");
+          console.log(member);
+          console.log(myDest.getName);
+          if(member == 'iframe'){
+            var page;
+            var loader = this.makeLoader(uri);
+            var find_head = myText.match(/<\s*head[^>]*>/);
+            if(find_head){
+             // console.log(find_head);
+              //console.log(find_head[0].length);
+              //console.log(find_head.index);
+              var head_pos = find_head[0].length+find_head.index;
+              //console.log("head_pos",head_pos);
+              //console.log(myText.substring(0,head_pos));
+              //console.log("end of head_pos");
+              page = myText.substring(0,head_pos) + loader + myText.substring(head_pos);
+              //console.log(myText.substring(head_pos));
+              console.log("new page:",page);
+            }else{
+              page = "<head>"+loader+"</head>"+myText;
+            }
+            
+            myDest.write(page);
+            myDest.close();
+            console.log(myDest.body);
+          }else{
+            myDest[member] = myText;
+          }
+        }
+      
+        this.responseCallbackText = function(myResponse, myDest, member) {
+           var uri = myResponse.url;
+           if(typeof myResponse.headers['x-uri'] != 'undefined'){
+              uri = myResponse.headers['x-uri'];
+              console.log("Found X-URI:",uri);
+           }
+           return myResponse.text().then(myBlob => this.textReciver(myBlob, myDest, member, uri));
+        }
+      
+        this.responseCallbackBlob = function(myResponse, myDest, member) {
+           return myResponse.blob().then(myBlob => this.blobReciver(myBlob, myDest, member));
+        }
+        
+        this.repairHost = function(uri){
+          console.log("repairing to host:",uri);
+          console.log("x_start:", window.x_start);
+          if(uri.startsWith(window.x_start)){
+            console.log("fixing:",uri);
+            uri = uri.substring(window.x_start.length);
+          }
+          if(uri.startsWith("data://")){
+            return uri;
+          }
+          if(!uri.startsWith("http")){
+            var x_url = new URL(window.x_uri);
+            if(uri.startsWith("/")){
+              uri = "https://"+ x_url.host + uri;
+            }else{
+              uri = "https://"+ x_url.host + x_url.pathname + uri;
+            }
+          }
+          console.log("fixed:",uri);
+          return uri;
+        }
+      
+        this.populateText = function(dom_dest, member, uri, method = "GET", body = ""){
+          uri = this.repairHost(uri);
+          method = method.toUpperCase();
+          if(method == "GET"){
+            var params = "";
+            for (var key in body) {
+                if (params != "") {
+                    params += "&";
+                }
+                params += key + "=" + encodeURIComponent(body[key]);
+            }
+            uri = uri + "?" + params;
+            fetch(uri).then(response => this.responseCallbackText(response, dom_dest, member));/*.catch(error => 
+              fetch(this.proxy1+encodeURIComponent(uri)).then(response => this.responseCallbackText(response, dom_dest, member)).catch(error => 
+                fetch(this.proxy2+encodeURIComponent(uri)).then(response => this.responseCallbackText(response, dom_dest, member))));*/
+          }else{
+            console.log("using method:", method);
+            var req_attrib = {method: method, body: body, redirect: 'follow'};
+              fetch(uri, req_attrib).then(response => this.responseCallbackText(response, dom_dest, member));/*.catch(error => 
+                fetch(this.proxy1+encodeURIComponent(uri), req_attrib).then(response => this.responseCallbackText(response, dom_dest, member)).catch(error => 
+                  fetch(this.proxy2+encodeURIComponent(uri), req_attrib).then(response => this.responseCallbackText(response, dom_dest, member))));*/
+          }
+        }
+      
+        this.populateBlob = function(dom_dest, member, uri){
+          uri = this.repairHost(uri);
+          fetch(uri).then(response => this.responseCallbackBlob(response, dom_dest, member));/*.catch(error => 
+            fetch(this.proxy1+encodeURIComponent(uri)).then(response => this.responseCallbackBlob(response, dom_dest, member)).catch(error => 
+              fetch(this.proxy2+encodeURIComponent(uri)).then(response => this.responseCallbackBlob(response, dom_dest, member))));*/
+        }
+      
+        this.makeLoader= function(uri){
+          return "<base href='"+uri+"' /></head><script>window.x_uri='"+uri+"';window.x_start='"+window.x_start+"';</"+"script><script id=x_loader>"+window.x_loader+"</"+"script>";
+        }
+      
+        this.popup = function(uri, method, body = ""){
+          var myiframe = document.createElement('iframe');
+          myiframe.src = "about:blank";
+          //myiframe.hostname="www.bing.com";
+          //myiframe.hash="hash";
+          //myiframe.search="test=123";    
+          //myiframe.setAttribute("srcdoc", loader+text);
+      
+          myiframe.style.width = "100%";
+          myiframe.style.height = "100%";
+          myiframe.scrolling = "yes";
+          //myiframe.onerror = function(e){console.log('caught iframe:',e)};
+          myiframe.allow = "autoplay"
+          myiframe.sandbox = "allow-pointer-lock allow-same-origin allow-scripts allow-orientation-lock allow-forms";
+          
+          document.body.appendChild(myiframe);
+          var myiframeDoc = myiframe.contentWindow && myiframe.contentWindow.document;
+          //myiframeDoc.body = document.createElement("body");
+          myiframe.contentWindow.onerror=function(e) {
+            console.log('caught iframe error!!', e);
+            return false;
+          }
+          //document.body.appendChild(myiframe);
+          proxy = corsProxyRequest();
+      
+          proxy.populateText(myiframeDoc, 'iframe', uri);
+        }
+      
+        this.navigate = function(uri, method, body = ""){
+          uri = this.repairHost(uri);
+          console.log("navigating:", uri);
+          //this.loading_new_page = true;
+          var loader = this.makeLoader(uri);
+          document.getElementById('webpage').srcdoc = loader;
+          
+         // x_load = document.createElement("script");
+          //x_load.text = 
+          window.x_uri = uri;
+          //document.body = document.createElement("body");
+          //this.populateText(document, 'innerHTML', uri, method, body);
+          return document;
+        }
+      
+        return this;
+      }
+      
+      
+      window.x_start="https://localhost:8000/";
+      window.x_uri="https://localhost:8000/bad.html";
+      var loader;
+      
+      function fetchIframe(url, loader){
+        fetch(url).then(function(response) {
+          response.text().then(function(iframeContent) {
+              var pollFrame = document.createElement("iframe");
+              
+             // const blobContent = new Blob([loader+iframeContent], {type: "text/html"});
+              //var srcobj = URL.createObjectURL(blobContent);  
+              //pollFrame.src = srcobj;      
+              
+              pollFrame.src = "about:blank";
+              //pollFrame.hostname="www.bing.com";
+              //pollFrame.hash="hash";
+              //pollFrame.search="test=123";        
+              
+              //pollFrame.setAttribute("srcdoc", loader+text);
+              
+              pollFrame.style.width = "640px";
+              pollFrame.style.height = "480px";
+              pollFrame.scrolling = "yes";
+              pollFrame.onerror = function(e){console.log('caught iframe:',e)};
+              pollFrame.allow="autoplay"
+              pollFrame.sandbox = "allow-pointer-lock allow-same-origin allow-scripts allow-orientation-lock allow-forms";
+              
+              document.body.appendChild(pollFrame);
+              var pollFrameDoc = pollFrame.contentWindow && pollFrame.contentWindow.document;
+              
+              pollFrameDoc.write(loader+iframeContent);
+              pollFrame.contentWindow.onerror=function(e) {
+                console.log('caught iframe error!!', e);
+                return false;
+              }
+          });
+        });
+      }
+    /*  
+      fetch("pp.js").then(function(response) {
+        response.text().then(function(text) {
+            loader = `
+            <html>
+              <head>
+                <base href="${window.x_uri}" target="_blank">
+                <script>
+                window.x_uri = "${window.x_uri}";
+                window.x_start = "${window.x_start}";
+              </`+`script>
+              <script id=x_loader>
+             //document.head.baseURI = URL(window.x_uri);
+            window.x_cookie = {};
+          `+text+`
+          </`+`script>
+          </head>`;
+          fetchIframe("bad.html", loader);
+          })
+      });
+      */
+      /*
+      const blobContent = new Blob(["<script>window.history.pushState(null, null, '/path?test=123');document.write(document.location)</"+"script>"], {type: "text/html"});
+      console.log(blobContent);
+      var iFrame = document.createElement("iframe");
+      var srcobj = URL.createObjectURL(blobContent);
+      srcobj.hostname="google.com";
+      srcobj.hash="hash";
+      srcobj.search="test=1337";
+      iFrame.src = srcobj;
+      document.body.appendChild(iFrame);
+      */
+      
+      
+      window.x_cors_service = false;
+
+      function handleMessage(event) {
+        console.log("got message:",event);
+        if(typeof event.data["x_type"] != undefined){
+          if(event.data["x_type"] == "navigate"){
+            proxy = corsProxyRequest();
+            //refresh about:blank:
+            //event.source.frameElement.contentWindow.reload();
+            //event.source.frameElement.contentWindow.location = "about:blank";
+            //event.source.frameElement.src = "about:blank";
+            //event.source.frameElement.contentWindow = "";
+            console.log("myiframedoc:");
+            console.log(window.myiframeDoc);
+            window.myiframeDoc = event.source.frameElement.contentWindow && event.source.frameElement.contentWindow.document;
+            //todo clear out the iframe better...
+            window.myiframeDoc.body = document.createElement('body');
+            //window.myiframeDoc.body.innerHTML = "";
+            //var myiframeDoc = event.source.frameElement.contentWindow && event.source.frameElement.contentWindow.document;
+            //proxy.populateText(event.source.frameElement, "iframe", event.data["x_uri"]);
+            proxy.populateText(myiframeDoc.body, "innerHTML", event.data["x_uri"]);
+          }else if(event.data["x_type"] == "csw" && typeof event.data["x_id"] !== 'undefined'
+                                             && typeof event.data["x_uri"] !== 'undefined'){
+            if(window.x_cors_service){
+              window.x_cors_lookup[event.data["x_id"]]=event.data["x_uri"];
+            }else{
+              //not for us, pass it up:
+              parent.postMessage(event.data);
+            }
+          }
+        }
+      }
+      
+      if ( window.addEventListener ) {
+          window.addEventListener('message', handleMessage, false);
+      } else if ( window.attachEvent ) { // ie8
+          window.attachEvent('onmessage', handleMessage);
+      }
+      
+      function createIFrame(iframeContent) {
+          var myFrame = document.createElement("iframe");
+          myFrame.src = "about:blank";
+          //document.body.innerHTML = ""; // (optional) Totally Clear it if needed
+          document.body.appendChild(myFrame);
+          var myFrameDoc = myFrame.contentWindow && myFrame.contentWindow.document;
+          if (!myFrameDoc) {
+            console.log("iFrame security - about:blank failed");
+            const blobContent = new Blob([iframeContent], {type: "text/html"});
+            //console.log(blobContent);
+            var myFrame = document.createElement("iframe");
+            var srcobj = URL.createObjectURL(blobContent);
+            srcobj.hostname="google.com";
+            srcobj.hash="hash";
+            srcobj.search="test=1337";
+            myFrame.src = srcobj;
+            document.body.appendChild(myFrame);
+            window.x_iframe = myFrame;   
+          return;
+          }
+      
+          myFrameDoc.write(iframeContent);
+          myFrameDoc.close();
+      }      
+/*
+window.onerror = function (msg, url, lineNo, columnNo, error) {
+  var string = msg.toLowerCase();
+  var substring = "script error";
+  if (string.indexOf(substring) > -1){
+    alert('Script Error: See Browser Console for Detail');
+  } else {
+    var message = [
+      'Message: ' + msg,
+      'URL: ' + url,
+      'Line: ' + lineNo,
+      'Column: ' + columnNo,
+      'Error object: ' + JSON.stringify(error)
+    ].join(' - ');
+
+    alert(message);
+  }
+
+  return false;
+};
+*/
+//local storage pollyFill
+function isLocalStoragSupported() {
+    return 'localStorage' in window && window['localStorage'] !== null;
+  }
+  
+  if (!isLocalStoragSupported()) {
+    function initLocalStore(undef) {
+      var store = {
+        setItem: function (id, val) {
+          return store[id] = String(val);
+        },
+        getItem: function (id) {
+          return store.hasOwnProperty(id) ? String(store[id]) : undef;
+        },
+        removeItem: function (id) {
+          return delete store[id];
+        },
+        clear: function () {
+          init();
+        }
+      };
+      window.localStorage = store;
+      window.sessionStorage = store;
+    }
+    initLocalStore();
+  }
+  var localStorage = window.localStorage;
+  var sessionStorage = window.sessionStorage;
+  
+  window.originalPush = window.history.pushState;
+  try{
+    if(window.x_uri){
+      var myLoc = new URL(window.x_uri);
+      window.originalPush.pushState(null, null, myLoc.pathname+myLoc.search+myLoc.hash);
+    }
+  }catch(e){}
+  
+  function corsProxyRequest(){ 
+    this.proxy1 = "https://www.whateverorigin.org/get?url=";
+    this.loading_new_page = false;
+    this.x_loader = document.getElementById("x_loader").innerHTML;
+  
+    this.blobReciver = function(myResponse, myDest, memeber) {
+      reader = new FileReader();
+      //console.log("blob:",myBlob);
+      new Promise((resolve, reject) => {
+        var fr = new FileReader();  
+        fr.onload = () => {
+            cors_read = JSON.parse(fr.result);
+          myDest[member] = cors_read.contents;
+        };
+        fr.readAsDataURL(myBlob);
+      }); 
+    }
+  
+    this.textReciver = function(myText, myDest) {
+        myDest = myText;
+    }
+  
+    this.responseCallbackBlob = function(myResponse, myDest, member) {
+       return myResponse.blob().then(myBlob => this.blobReciver(myBlob, myDest, member));
+    }
+    
+    this.repairHost = function(uri){
+      if(uri.startsWith("data://")){
+        return uri;
+      }
+      if(!uri.startsWith("http")){
+        uri = document.head.baseURI + uri;
+      }
+      return uri;
+    }
+  
+    this.populateText = function(uri, dom_dest, member){
+      uri = this.repairHost(uri);
+      fetch(uri).then(response => this.textReciver(response, dom_dest, member)).catch(error => 
+        fetch(this.proxy1+uri).then(response => this.textReciver(response, dom_dest, member)));
+    }
+  
+    this.populateBlob = function(uri, dom_dest, member){
+      uri = this.repairHost(uri);
+      fetch(uri).then(response => this.responseCallbackBlob(response, dom_dest, member)).catch(error => 
+        fetch(this.proxy1+uri).then(response => this.responseCallbackBlob(response, dom_dest, member)));
+    }
+  
+    this.makeHead= function(uri){
+      return '<base href="'+uri+'" target="_blank"></base><script>window.x_uri="'+uri+'";</'+'script><script id=x_loader>'+this.x_loader+'</'+'script>';
+    }
+  
+    this.navigate = function(uri){
+      //this.loading_new_page = true;
+      document.body.innerHTML = "";
+      document.head.innerHTML = this.makeHead(uri);
+      this.populateText(uri, document, 'body')
+    }
+    return this;
+  }
+  
+  function fixSource(event){
+    if ( event.target && event.target.tagName){
+      var proxy = corsProxyRequest();
+      console.log(event.target.tagName);
+      console.log(event.target);
+      const tagName = event.target.tagName.toLowerCase();
+      if(tagName == 'link' && event.target.rel && "style" == event.target.rel.toLowerCase().substring(0,5) && event.target.href && !event.target.href.startsWith("data")){
+        var myStyle = document.createElement('style');
+        myStyle.innerHTML=myText;
+        document.head.append(myStyle);       
+        proxy.populateText(event.target.href, myStyle, 'innerHTML'); 
+      }else if(typeof event.target.src !== 'undefined' && !event.target.src.startsWith("data")){
+        if(tagName == 'iframe'){
+          var target_uri = event.target.src;
+          event.target.src = "";
+          event.target.srcdoc = "";
+          proxy.populateText(target_uri, event.target, 'srcdoc');          
+        }else{
+          proxy.populateText(event.target.src, event.target, 'src'); 
+       /* }else if(typeof event.target.href !==undefined){
+            proxy.populateText(event.target.href, event.target); 
+        }*/
+        }
+      }
+    }
+  }
+  
+  document.addEventListener('load', function(event) {
+    console.log("caught load:",event);
+    fixSource(event);
+  }, true);
+  
+  document.addEventListener('error', function(event) {
+    console.log("caught error:",event);
+    fixSource(event);
+  }, true);
+  
+  window.open = function(e){
+    console.log("hooked open:",hook);
+    e.cancelBubble = true;
+    if (e.stopPropagation) e.stopPropagation();
+    if (e.preventDefault) e.preventDefault();
+    var myiframe = document.createElement('iframe');
+    document.body.appendChild(iframe);
+    proxy = corsProxyRequest();
+    proxy.populateText(e.target.href, myiframe, 'srcdoc');
+    return myiframe;
+  };
+  
+  document.onclick = function (e) {
+    console.log("hooked onclick");
+    e = e ||  window.event;
+    var element = e.target || e.srcElement;
+    //# is sometimes used as a placeholder for an onclick...
+    if (element.tagName == 'A' && element.href && !element.href.startsWith("#") && !element.href.startsWith('javscript')) {
+      console.log("processing:", element.href);
+      //stop the default action.
+      e.cancelBubble = true;
+      if (e.stopPropagation) e.stopPropagation();
+      if (e.preventDefault) e.preventDefault(); 
+  
+      proxy = corsProxyRequest();
+      if(typeof element.target !== 'undefined' && element.target.toLowerCase() == "_blank"){
+        proxy.popup(element.href);
+      }else{    
+        proxy.navigate(element.href);
+      }     
+      return false; // prevent default action and stop event propagation
+    }
+  };
+  
+  window.history.pushState = function(state, title, url){
+    console.log("hooked history:",state, title, url);
+    proxy = corsProxyRequest();
+    proxy.navigate(url);
+  };        
+    </script>
+
+    <script>
+        const backButton = document.getElementById('back-button');
+        const forwardButton = document.getElementById('forward-button');
+        const refreshButton = document.getElementById('refresh-button');
+        const urlInput = document.getElementById('url-input');
+        const webpage = document.getElementById('webpage');
+        const historyStack = [];
+        let currentIndex = -1;
+
+        backButton.addEventListener('click', () => {
+            if (currentIndex > 0) {
+                currentIndex--;
+                forwardButton.disabled = false;
+                urlInput.value = historyStack[currentIndex];
+                webpage.src = historyStack[currentIndex];
+            }
+            backButton.disabled = currentIndex === 0;
+        });
+
+        forwardButton.addEventListener('click', () => {
+            if (currentIndex < historyStack.length - 1) {
+                currentIndex++;
+                backButton.disabled = false;
+                urlInput.value = historyStack[currentIndex];
+                webpage.src = historyStack[currentIndex];
+            }
+            forwardButton.disabled = currentIndex === historyStack.length - 1;
+        });
+
+        refreshButton.addEventListener('click', () => {
+            webpage.src = urlInput.value;
+        });
+
+        urlInput.addEventListener('keyup', (event) => {
+            if (event.key === 'Enter') {
+                const url = urlInput.value;
+                webpage.src = url;
+                if (url !== historyStack[currentIndex]) {
+                    historyStack.push(url);
+                    currentIndex++;
+                }
+                backButton.disabled = currentIndex === 0;
+                forwardButton.disabled = true;
+            }
+        });
+
+        // Add event listener to track iframe navigation
+        webpage.addEventListener('load', () => {
+            if (webpage.src !== historyStack[currentIndex]) {
+                historyStack.push(webpage.src);
+                currentIndex++;
+            }
+            backButton.disabled = currentIndex === 0;
+            forwardButton.disabled = true;
+        });
+
+        // Keep address bar at the top while scrolling
+        const chromeBar = document.getElementById('chrome-bar');
+        const content = document.getElementById('content');
+        const webpageHeight = document.getElementById('webpage').clientHeight;
+
+        content.addEventListener('scroll', () => {
+            const scrollTop = content.scrollTop;
+            if (scrollTop >= webpageHeight) {
+                chromeBar.style.top = `${scrollTop - webpageHeight}px`;
+            } else {
+                chromeBar.style.top = '0';
+            }
+        });
+    </script>
+    <script>
+        window.loader = `
+        <html>
+          <head>
+            <base href="${window.x_uri}" target="_blank">
+            <script>
+            window.x_uri = "${window.x_uri}";
+            window.x_start = "${window.x_start}";
+          </`+`script>
+          <`+`script id=x_loader>
+         //document.head.baseURI = URL(window.x_uri);
+        window.x_cookie = {};
+      `+window.x_loader+`
+      </`+`script>
+      </head>`;
+      //fetchIframe("bad.html", loader);        
+    </script>
+</body>
+</html>
