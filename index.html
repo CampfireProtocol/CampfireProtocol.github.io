@@ -11,7 +11,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Browse.html</title>
     <style>
-        body {
+        body {  
             margin: 0;
             padding: 0;
             font-family: Arial, sans-serif;
@@ -92,10 +92,10 @@
             <button id="back-button" disabled></button>
             <button id="forward-button" disabled></button>
             <button id="refresh-button"></button>
-            <input id="url-input" type="text" value="https://www.wikipeida.org">
+            <input id="url-input" type="text" value="https://www.wikipedia.org">
         </div>
         <div id="content">
-            <iframe id="webpage" frameborder="0"></iframe>
+            <iframe sandbox="allow-scripts" id="webpage" src="https://wikipedia.org" frameborder="0"></iframe>
         </div>
     </div>
 
@@ -125,7 +125,7 @@
       }
       
       // Create a new fetch method that acts as a proxy
-      window.fetch = function (url, options) {
+      fetchHook = function (url, options) {
         // You can add any custom logic here before making the actual fetch request
         // For example, you can modify headers or do additional processing
         
@@ -155,7 +155,7 @@
             // For example, you can modify headers or do additional processing
       
             // Call the overridden fetch method and pass the arguments
-            return window.fetch.apply(window, arguments);
+            return window.base_fetch.apply(window, arguments);
           };
       
           return xhr;
@@ -168,7 +168,7 @@
       function corsProxyRequest(){ 
         this.proxy1 = "https://www.whateverorigin.org/get?url=";
         this.loading_new_page = false;
-        this.x_loader = window.x_loader;
+        this.x_loader = "";//window.x_loader;
       
         this.blobReciver = function(myResponse, myDest, member) {
           reader = new FileReader();
@@ -208,9 +208,9 @@
             }else{
               page = "<head>"+loader+"</head>"+myText;
             }
-            
-            myDest.write(page);
-            myDest.close();
+            //todo:  this is needed! 
+            //myDest.write(page);
+            //myDest.close();
             console.log(myDest.body);
           }else{
             myDest[member] = myText;
@@ -288,6 +288,7 @@
         }
       
         this.popup = function(uri, method, body = ""){
+          console.log("calling this.popup")
           var myiframe = document.createElement('iframe');
           myiframe.src = "about:blank";
           //myiframe.hostname="www.bing.com";
@@ -320,8 +321,8 @@
           console.log("navigating:", uri);
           //this.loading_new_page = true;
           var loader = this.makeLoader(uri);
-          document.getElementById('webpage').srcdoc = loader;
-          
+          //document.getElementById('webpage').srcdoc = loader;
+          console.log(loader);
          // x_load = document.createElement("script");
           //x_load.text = 
           window.x_uri = uri;
@@ -334,8 +335,8 @@
       }
       
       
-      window.x_start="https://localhost:8000/";
-      window.x_uri="https://localhost:8000/bad.html";
+      window.x_start="";
+      window.x_uri="";
       var loader;
       
       function fetchIframe(url, loader){
@@ -420,13 +421,13 @@
             //event.source.frameElement.contentWindow = "";
             console.log("myiframedoc:");
             console.log(window.myiframeDoc);
-            window.myiframeDoc = event.source.frameElement.contentWindow && event.source.frameElement.contentWindow.document;
+            //window.myiframeDoc = event.source.frameElement.contentWindow && event.source.frameElement.contentWindow.document;
             //todo clear out the iframe better...
-            window.myiframeDoc.body = document.createElement('body');
+           // window.myiframeDoc.body = document.createElement('body');
             //window.myiframeDoc.body.innerHTML = "";
             //var myiframeDoc = event.source.frameElement.contentWindow && event.source.frameElement.contentWindow.document;
             //proxy.populateText(event.source.frameElement, "iframe", event.data["x_uri"]);
-            proxy.populateText(myiframeDoc.body, "innerHTML", event.data["x_uri"]);
+            //proxy.populateText(myiframeDoc.body, "innerHTML", event.data["x_uri"]);
           }else if(event.data["x_type"] == "csw" && typeof event.data["x_id"] !== 'undefined'
                                              && typeof event.data["x_uri"] !== 'undefined'){
             if(window.x_cors_service){
@@ -460,13 +461,13 @@
             srcobj.hostname="google.com";
             srcobj.hash="hash";
             srcobj.search="test=1337";
-            myFrame.src = srcobj;
+            //myFrame.src = srcobj;
             document.body.appendChild(myFrame);
             window.x_iframe = myFrame;   
           return;
           }
       
-          myFrameDoc.write(iframeContent);
+          //myFrameDoc.write(iframeContent);
           myFrameDoc.close();
       }      
 /*
@@ -490,9 +491,10 @@ window.onerror = function (msg, url, lineNo, columnNo, error) {
   return false;
 };
 */
+
 //local storage pollyFill
-function isLocalStoragSupported() {
-    return 'localStorage' in window && window['localStorage'] !== null;
+  function isLocalStoragSupported() {
+      return 'localStorage' in window && window['localStorage'] !== null;
   }
   
   if (!isLocalStoragSupported()) {
@@ -516,6 +518,21 @@ function isLocalStoragSupported() {
     }
     initLocalStore();
   }
+
+  //document.cookie polyfill:
+  if (!document.cookie) {
+    Object.defineProperty(document, 'cookie', {
+      get: function () {
+        return (document._cookie || '').replace(/;\s?/g, '; ');
+      },
+      set: function (value) {
+        document._cookie = value;
+      },
+      configurable: true,
+      enumerable: true,
+    });
+  }
+
   var localStorage = window.localStorage;
   var sessionStorage = window.sessionStorage;
   
@@ -564,6 +581,9 @@ function isLocalStoragSupported() {
     }
   
     this.populateText = function(uri, dom_dest, member){
+      var err = new Error();
+      return err.stack;
+
       uri = this.repairHost(uri);
       fetch(uri).then(response => this.textReciver(response, dom_dest, member)).catch(error => 
         fetch(this.proxy1+uri).then(response => this.textReciver(response, dom_dest, member)));
@@ -614,7 +634,7 @@ function isLocalStoragSupported() {
       }
     }
   }
-  
+  /*
   document.addEventListener('load', function(event) {
     console.log("caught load:",event);
     fixSource(event);
@@ -624,8 +644,8 @@ function isLocalStoragSupported() {
     console.log("caught error:",event);
     fixSource(event);
   }, true);
-  
-  window.open = function(e){
+  */
+  openPageHandler = function(e){
     console.log("hooked open:",hook);
     e.cancelBubble = true;
     if (e.stopPropagation) e.stopPropagation();
@@ -637,7 +657,7 @@ function isLocalStoragSupported() {
     return myiframe;
   };
   
-  document.onclick = function (e) {
+  onclickHandler = function (e) {
     console.log("hooked onclick");
     e = e ||  window.event;
     var element = e.target || e.srcElement;
@@ -658,12 +678,13 @@ function isLocalStoragSupported() {
       return false; // prevent default action and stop event propagation
     }
   };
-  
+  /*
   window.history.pushState = function(state, title, url){
     console.log("hooked history:",state, title, url);
     proxy = corsProxyRequest();
     proxy.navigate(url);
-  };        
+  };    
+  */    
     </script>
 
     <script>
@@ -737,7 +758,8 @@ function isLocalStoragSupported() {
         });
     </script>
     <script>
-        window.loader = `
+        window.loader = "";
+        `
         <html>
           <head>
             <base href="${window.x_uri}" target="_blank">
