@@ -1,15 +1,22 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <!-- <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'unsafe-inline'; style-src 'unsafe-inline'"/> -->
-    <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0">
+  <meta http-equiv="Content-Security-Policy" content="
+  default-src 'self' https://corsproxy.io;
+  script-src 'self' 'unsafe-inline';
+  style-src 'self' 'unsafe-inline';
+  img-src 'self' data:;
+  connect-src 'self' https://corsproxy.io;
+  worker-src 'self';
+">
+  <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0">
     <meta http-equiv="Cache-Control" content="post-check=0, pre-check=0">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">    
     <meta name="referrer" content="no-referrer" />
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Browse.html</title>
+    <title>Browse.html</title>x`
     <style>
         body {  
             margin: 0;
@@ -95,11 +102,173 @@
             <input id="url-input" type="text" value="https://www.wikipedia.org">
         </div>
         <div id="content">
-            <iframe sandbox="allow-scripts" id="webpage" src="https://wikipedia.org" frameborder="0"></iframe>
+            <iframe sandbox="allow-scripts allow-forms" id="webpage" frameborder="0"></iframe>
         </div>
     </div>
 
     <script id="x_loader">
+
+    // Check if the browser supports service workers
+    if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/service-worker.js')
+          .then(registration => {
+            console.log('Service Worker registered:', registration);
+          })
+          .catch(error => {
+            console.log('Service Worker registration failed:', error);
+          });
+      });
+   }
+
+      window.x_proxy =  "https://corsproxy.io/?";
+
+      window.addEventListener('securitypolicyviolation', function(event) {
+        //recovering from csp violation:
+        //console.log('CSP Violation:', event);
+      
+        // Fetch the blocked resource using a CORS proxy
+        fetchWithProxy(event.blockedURI)
+          .then(response => response.text())
+          .then(data => {
+
+          // Check if the source is an iframe
+          if (frameElement.tagName === 'IFRAME') {
+          const iframeDocument = event.source.document;
+            iframeDocument.open();
+            iframeDocument.write(data);
+            iframeDocument.close();
+          }
+
+          // Check if the source is an image
+        else if (frameElement.tagName === 'IMG') {
+          // Assuming data is binary image data
+          fetch('your_image_url')
+            .then(response => {
+              const contentType = response.headers.get('content-type');
+              return response.arrayBuffer();
+            })
+            .then(binaryImage => {
+              const base64Image = btoa(String.fromCharCode.apply(null, new Uint8Array(binaryImage)));
+              frameElement.src = `data:${contentType};base64,${base64Image}`;
+            })
+            .catch(error => {
+              console.error('Error fetching image:', error);
+            });
+        }
+
+        // Check if the source is a link to a CSS file
+        else if (frameElement.tagName === 'LINK' && frameElement.getAttribute('rel') === 'stylesheet') {
+          // Assuming data is binary CSS data
+          const binaryCss = data;
+          const base64Css = btoa(String.fromCharCode.apply(null, binaryCss));
+          const styleTag = document.createElement('style');
+          styleTag.textContent = atob(base64Css); // Decode from Base64 and set as text content
+          document.head.appendChild(styleTag);
+        }
+
+        // Check if the source is a video
+        else if (frameElement.tagName === 'VIDEO') {
+          // Assuming data is binary video data
+          fetch('your_video_url')
+            .then(response => {
+              const contentType = response.headers.get('content-type');
+              return response.arrayBuffer();
+            })
+            .then(binaryVideo => {
+              const base64Video = btoa(String.fromCharCode.apply(null, new Uint8Array(binaryVideo)));
+              frameElement.src = `data:${contentType};base64,${base64Video}`;
+            })
+            .catch(error => {
+              console.error('Error fetching video:', error);
+            });
+        }
+
+          })
+          .catch(error => {
+            console.error('Error fetching data through proxy:', error);
+          });
+      });
+      
+      function fetchWithProxy(url) {
+        // Use the CORS proxy to fetch the resource
+     //const corsProxyUrl = 'https://corsproxy.io/?';
+       if(url.startsWith(window.x_proxy)){
+        console.log("Fetching:"+window.x_proxy);
+         return fetch(url);
+        }else{
+          console.log("fetching:"+window.x_proxy+url);
+          return fetch(window.x_proxy+url);{
+        }
+      }
+
+      function handleFetchedData(data) {
+        // Handle the fetched data as needed, for example, inject it into the DOM
+        // Replace this with your actual logic
+        const resultContainer = document.getElementById('result-container');
+        resultContainer.textContent = data;
+      }
+
+      const CACHE_NAME = 'my-cache-v1';
+
+self.addEventListener('install', event => {
+  event.waitUntil(
+    caches.open(CACHE_NAME).then(cache => {
+      // Nothing to cache during installation
+      return;
+    })
+  );
+});
+
+self.addEventListener('fetch', event => {
+  event.respondWith(
+    caches.match(event.request).then(response => {
+      return response || fetch(event.request).then(fetchResponse => {
+        // Check if we received a valid response
+        if (!fetchResponse || fetchResponse.status !== 200 || fetchResponse.type !== 'basic') {
+          return fetchResponse;
+        }
+
+        // Clone the response as it can be read only once
+        const responseToCache = fetchResponse.clone();
+
+        caches.open(CACHE_NAME).then(cache => {
+          cache.put(event.request, responseToCache);
+        });
+
+        return fetchResponse;
+      }).catch(error => {
+        // Handle fetch errors here, e.g., log the error
+        console.error('Error fetching:', error);
+      });
+    })
+  );
+});
+
+self.addEventListener('activate', event => {
+  event.waitUntil(
+    caches.keys().then(cacheNames => {
+      return Promise.all(
+        cacheNames.map(cacheName => {
+          if (cacheName !== CACHE_NAME) {
+            return caches.delete(cacheName);
+          }
+        })
+      );
+    })
+  );
+});
+
+
+        Object.defineProperty(document, 'cookie', {
+          get: function() {
+            return (document._cookie || '');
+          },
+          set: function(cookieString) {
+            document._cookie = cookieString;
+          }
+        });
+      
         window.addEventListener('error', function(e) {
             console.log("parent window global exception:",e);
           });
@@ -166,7 +335,8 @@
       })();
 
       function corsProxyRequest(){ 
-        this.proxy1 = "https://www.whateverorigin.org/get?url=";
+        
+        this.proxy1 = "https://corsproxy.io/?";
         this.loading_new_page = false;
         this.x_loader = "";//window.x_loader;
       
@@ -216,6 +386,8 @@
             myDest[member] = myText;
           }
         }
+        //  blocked auto-focusing on <inpout>
+        //https://stackoverflow.com/questions/63737458/blocked-autofocusing-on-a-input-element-in-a-cross-origin-subframe
       
         this.responseCallbackText = function(myResponse, myDest, member) {
            var uri = myResponse.url;
@@ -241,7 +413,7 @@
             return uri;
           }
           if(!uri.startsWith("http")){
-            var x_url = new URL(window.x_uri);
+            var x_url = new URL(uri);
             if(uri.startsWith("/")){
               uri = "https://"+ x_url.host + uri;
             }else{
@@ -282,14 +454,26 @@
             fetch(this.proxy1+encodeURIComponent(uri)).then(response => this.responseCallbackBlob(response, dom_dest, member)).catch(error => 
               fetch(this.proxy2+encodeURIComponent(uri)).then(response => this.responseCallbackBlob(response, dom_dest, member))));*/
         }
-      
-        this.makeLoader= function(uri){
-          return "<base href='"+uri+"' /></head><script>window.x_uri='"+uri+"';window.x_start='"+window.x_start+"';</"+"script><script id=x_loader>"+window.x_loader+"</"+"script>";
-        }
-      
+        this.makeLoader = function(uri) {
+          return "<head><base href='" + uri + "' /></head>" +
+            "(function() {" +
+            "  // Save the original postMessage function" +
+            "  var originalPostMessage = window.postMessage;" +
+            "  // Override the postMessage function" +
+            "  window.postMessage = function(message, targetOrigin, transfer) {" +
+            "    // Always set targetOrigin to '*'" +
+            "    targetOrigin = '*';" +
+            "    // Call the original postMessage function" +
+            "    originalPostMessage.call(window, message, targetOrigin, transfer);" +
+            "  };" +
+            "})();" +
+            "<script>window.x_uri='" + uri + "'; window.x_start='" + window.x_start + "';</" + "script>" +
+            "<script id='x_loader'>" + window.x_loader + "</" + "script>";
+        };
         this.popup = function(uri, method, body = ""){
           console.log("calling this.popup")
           var myiframe = document.createElement('iframe');
+          myiframe.name = "navigator";
           myiframe.src = "about:blank";
           //myiframe.hostname="www.bing.com";
           //myiframe.hash="hash";
@@ -315,7 +499,37 @@
       
           proxy.populateText(myiframeDoc, 'iframe', uri);
         }
-      
+
+
+    // Override createElement method to intercept and rewrite URLs
+    document.createElement = (function (originalCreateElement) {
+      return function (tagName) {
+        var element = originalCreateElement.apply(this, arguments);
+
+        // Intercepting 'a', 'img', 'script', and other elements with 'src' or 'href' attributes
+        if (['a', 'img', 'script', /* Add other tags here if needed */].includes(tagName.toLowerCase())) {
+          var originalSetAttribute = element.setAttribute;
+
+          // Override setAttribute to rewrite 'src' or 'href' attributes
+          element.setAttribute = function (name, value) {
+            if ((tagName.toLowerCase() === 'a' && name.toLowerCase() === 'href') ||
+                ((tagName.toLowerCase() === 'img' || tagName.toLowerCase() === 'script') && name.toLowerCase() === 'src')) {
+              // Check if the URL is a relative hostname
+              if (value.startsWith('/') || value.startsWith('./') || value.startsWith('../')) {
+                // Construct a fully qualified domain name using window.xHost
+                value = window.xHost + value;
+              } else {
+                // Otherwise, rewrite the URL using the cors_proxy variable
+                value = window.cors_proxy + encodeURIComponent(value);
+              }
+            }
+            originalSetAttribute.call(this, name, value);
+          };
+        }
+
+        return element;
+      };
+    })(document.createElement);
         this.navigate = function(uri, method, body = ""){
           uri = this.repairHost(uri);
           console.log("navigating:", uri);
@@ -328,51 +542,13 @@
           window.x_uri = uri;
           //document.body = document.createElement("body");
           //this.populateText(document, 'innerHTML', uri, method, body);
+          document.getElementByName("navigator").contentWindow = fetchWithProxy( window.x_uri);
           return document;
         }
       
         return this;
       }
-      
-      
-      window.x_start="";
-      window.x_uri="";
-      var loader;
-      
-      function fetchIframe(url, loader){
-        fetch(url).then(function(response) {
-          response.text().then(function(iframeContent) {
-              var pollFrame = document.createElement("iframe");
-              
-             // const blobContent = new Blob([loader+iframeContent], {type: "text/html"});
-              //var srcobj = URL.createObjectURL(blobContent);  
-              //pollFrame.src = srcobj;      
-              
-              pollFrame.src = "about:blank";
-              //pollFrame.hostname="www.bing.com";
-              //pollFrame.hash="hash";
-              //pollFrame.search="test=123";        
-              
-              //pollFrame.setAttribute("srcdoc", loader+text);
-              
-              pollFrame.style.width = "640px";
-              pollFrame.style.height = "480px";
-              pollFrame.scrolling = "yes";
-              pollFrame.onerror = function(e){console.log('caught iframe:',e)};
-              pollFrame.allow="autoplay"
-              pollFrame.sandbox = "allow-pointer-lock allow-same-origin allow-scripts allow-orientation-lock allow-forms";
-              
-              document.body.appendChild(pollFrame);
-              var pollFrameDoc = pollFrame.contentWindow && pollFrame.contentWindow.document;
-              
-              pollFrameDoc.write(loader+iframeContent);
-              pollFrame.contentWindow.onerror=function(e) {
-                console.log('caught iframe error!!', e);
-                return false;
-              }
-          });
-        });
-      }
+    
     /*  
       fetch("pp.js").then(function(response) {
         response.text().then(function(text) {
@@ -434,7 +610,7 @@
               window.x_cors_lookup[event.data["x_id"]]=event.data["x_uri"];
             }else{
               //not for us, pass it up:
-              parent.postMessage(event.data);
+              parent.postMessage(event.data,"*");
             }
           }
         }
@@ -518,20 +694,102 @@ window.onerror = function (msg, url, lineNo, columnNo, error) {
     }
     initLocalStore();
   }
+}
 
-  //document.cookie polyfill:
-  if (!document.cookie) {
-    Object.defineProperty(document, 'cookie', {
-      get: function () {
-        return (document._cookie || '').replace(/;\s?/g, '; ');
-      },
-      set: function (value) {
-        document._cookie = value;
-      },
-      configurable: true,
-      enumerable: true,
+  //todo: this polyfill should only run in the top container.
+  // Iframe polyfill - the child frame won't suspect a thing.
+  /*
+  Object.defineProperty(window, 'top', {
+    get: function () {
+      return window;
+    },
+    configurable: true
+  });
+  */
+
+  Object.defineProperty(window, 'parent', {
+    get: function () {
+      return window;
+    },
+    configurable: true
+  });
+  //
+// Function to wrap an existing onsubmit event handler
+function wrapOnSubmit(form) {
+  const originalOnSubmit = form.onsubmit;
+
+  form.onsubmit = function (event) {
+    // Your custom logic before the original onsubmit handler, if needed
+    console.log('Before form submission');
+
+    // Call the original onsubmit handler, if it exists
+    if (originalOnSubmit && typeof originalOnSubmit === 'function') {
+      originalOnSubmit(event);
+    }
+
+    // Your custom logic after the original onsubmit handler, if needed
+    console.log('After form submission');
+  };
+}
+
+// Function to wrap the very first event handler with submitRewrite
+function wrapFirstEventHandler() {
+  const forms = document.getElementsByTagName('form');
+
+  // Check if DOMContentLoaded is registered
+  if (typeof window.addEventListener === 'function') {
+    window.addEventListener('DOMContentLoaded', function () {
+      // Find the first form with an event handler (if any)
+      for (let i = 0; i < forms.length; i++) {
+        const form = forms[i];
+        if (form.onsubmit) {
+          const originalOnSubmit = form.onsubmit;
+
+          form.onsubmit = function (event) {
+            // Your custom logic before the original onsubmit handler, if needed
+            console.log('Before form submission');
+
+            // Call the original onsubmit handler, if it exists
+            if (originalOnSubmit && typeof originalOnSubmit === 'function') {
+              originalOnSubmit(event);
+            }
+
+            // Your custom logic after the original onsubmit handler, if needed
+            console.log('After form submission');
+          };
+          return; // Stop after wrapping the first form's onsubmit
+        }
+      }
+
+      // If no forms have an onsubmit handler, do something else
+      if (forms.length > 0) {
+        // Your custom logic when there's no existing onsubmit handler
+        console.log('Form submitted with no existing onsubmit handler');
+      }
     });
   }
+}
+
+// Function to handle the first load
+function handleFirstLoad() {
+  if (document.readyState === 'loading') {
+    // The document is still loading, so we wait for the 'DOMContentLoaded' event
+    document.addEventListener('DOMContentLoaded', function () {
+      // Your code to run when the DOM is ready
+      console.log('DOMContentLoaded event fired after the first readystatechange.');
+
+      // Call wrapFirstEventHandler to wrap the first event handler
+      wrapFirstEventHandler();
+    });
+
+    // Remove the 'readystatechange' event listener to ensure it's executed only once
+    document.removeEventListener('readystatechange', handleFirstLoad);
+  }
+}
+
+// Register the 'readystatechange' event listener to handle the first load
+//document.addEventListener('readystatechange', handleFirstLoad);
+
 
   var localStorage = window.localStorage;
   var sessionStorage = window.sessionStorage;
@@ -581,9 +839,6 @@ window.onerror = function (msg, url, lineNo, columnNo, error) {
     }
   
     this.populateText = function(uri, dom_dest, member){
-      var err = new Error();
-      return err.stack;
-
       uri = this.repairHost(uri);
       fetch(uri).then(response => this.textReciver(response, dom_dest, member)).catch(error => 
         fetch(this.proxy1+uri).then(response => this.textReciver(response, dom_dest, member)));
@@ -598,8 +853,10 @@ window.onerror = function (msg, url, lineNo, columnNo, error) {
     this.makeHead= function(uri){
       return '<base href="'+uri+'" target="_blank"></base><script>window.x_uri="'+uri+'";</'+'script><script id=x_loader>'+this.x_loader+'</'+'script>';
     }
-  
+    
     this.navigate = function(uri){
+      //Change the hash, enable back button:
+      history.pushState(null, null, '#' + uri);
       //this.loading_new_page = true;
       document.body.innerHTML = "";
       document.head.innerHTML = this.makeHead(uri);
@@ -608,6 +865,39 @@ window.onerror = function (msg, url, lineNo, columnNo, error) {
     return this;
   }
   
+
+// Create a new MutationObserver
+const observer = new MutationObserver((mutationsList, observer) => {
+  // Loop through mutations
+  for (const mutation of mutationsList) {
+    // Check if nodes were added to the DOM
+    if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
+      // Loop through added nodes
+      for (const node of mutation.addedNodes) {
+        // Check if the added node is an <a> tag
+        if (node.tagName && node.tagName.toLowerCase() === 'a') {
+          // Do something with the newly created <a> tag
+          console.log('New <a> tag created:', node);
+          
+          // You can add your custom logic here to modify or handle the <a> tag.
+        }
+      }
+    }
+  }
+});
+
+
+  /*
+  window.history.pushState = function(state, title, url){
+    console.log("hooked history:",state, title, url);
+    proxy = corsProxyRequest();
+    proxy.navigate(url);
+  };    
+  */    
+
+// Start observing changes in the document
+//observer.observe(document, { childList: true, subtree: true });
+
   function fixSource(event){
     if ( event.target && event.target.tagName){
       var proxy = corsProxyRequest();
@@ -634,6 +924,7 @@ window.onerror = function (msg, url, lineNo, columnNo, error) {
       }
     }
   }
+
   /*
   document.addEventListener('load', function(event) {
     console.log("caught load:",event);
@@ -678,16 +969,7 @@ window.onerror = function (msg, url, lineNo, columnNo, error) {
       return false; // prevent default action and stop event propagation
     }
   };
-  /*
-  window.history.pushState = function(state, title, url){
-    console.log("hooked history:",state, title, url);
-    proxy = corsProxyRequest();
-    proxy.navigate(url);
-  };    
-  */    
-    </script>
 
-    <script>
         const backButton = document.getElementById('back-button');
         const forwardButton = document.getElementById('forward-button');
         const refreshButton = document.getElementById('refresh-button');
@@ -756,11 +1038,7 @@ window.onerror = function (msg, url, lineNo, columnNo, error) {
                 chromeBar.style.top = '0';
             }
         });
-    </script>
-    <script>
-        window.loader = "";
-        `
-        <html>
+        window.loader =`<html>
           <head>
             <base href="${window.x_uri}" target="_blank">
             <script>
@@ -770,10 +1048,92 @@ window.onerror = function (msg, url, lineNo, columnNo, error) {
           <`+`script id=x_loader>
          //document.head.baseURI = URL(window.x_uri);
         window.x_cookie = {};
-      `+window.x_loader+`
-      </`+`script>
-      </head>`;
-      //fetchIframe("bad.html", loader);        
-    </script>
+      `+window.x_loader+`<`+`/head>`    
+
+      function fetchIframe(url, loader){
+        fetch(url).then(function(response) {
+          response.text().then(function(iframeContent) {
+              var pollFrame = document.createElement("iframe");
+              
+             // const blobContent = new Blob([loader+iframeContent], {type: "text/html"});
+              //var srcobj = URL.createObjectURL(blobContent);  
+              //pollFrame.src = srcobj;      
+              
+              pollFrame.src = "about:blank";
+              //pollFrame.hostname="www.bing.com";
+              //pollFrame.hash="hash";
+              //pollFrame.search="test=123";        
+              
+              //pollFrame.setAttribute("srcdoc", loader+text);
+              
+              pollFrame.style.width = "640px";
+              pollFrame.style.height = "480px";
+              pollFrame.scrolling = "yes";
+              pollFrame.onerror = function(e){console.log('caught iframe:',e)};
+              pollFrame.allow="autoplay"
+              pollFrame.sandbox = "allow-pointer-lock allow-same-origin allow-scripts allow-orientation-lock allow-forms";
+              
+              document.body.appendChild(pollFrame);
+              var pollFrameDoc = pollFrame.contentWindow && pollFrame.contentWindow.document;
+              
+              pollFrameDoc.write(loader+iframeContent);
+              pollFrame.contentWindow.onerror=function(e) {
+                console.log('caught iframe error!!', e);
+                return false;
+              }
+          });
+        });
+      }
+
+      /*
+// i don't htnk this is needed:
+
+      function updateElementAttributes(element) {
+        // Check if the element is 'a', 'img', 'script', or any other tag you want to modify
+        if (element.tagName.toLowerCase() === 'a' || 
+            element.tagName.toLowerCase() === 'img' || 
+            element.tagName.toLowerCase() === 'script') {
+          
+          // Check and modify 'src' attribute for 'img' and 'script' tags
+          // Check and modify 'href' attribute for 'a' tags
+          const srcAttribute = element.tagName.toLowerCase() === 'a' ? 'href' : 'src';
+      
+          // Get the current attribute value
+          let value = element.getAttribute(srcAttribute);
+          if(value == "'/service-worker.js'"){
+            // no change
+            return;
+          }
+          // Check if it's a relative hostname
+          if (value && (value.startsWith('/') || value.startsWith('./') || value.startsWith('../'))) {
+            // Construct a fully qualified domain name using window.xHost
+            value = window.xHost + value;
+          } else {
+            // Otherwise, rewrite the URL using the cors_proxy variable
+            value = window.x_proxy + encodeURIComponent(value);
+          }
+      
+          // Update the attribute value
+          element.setAttribute(srcAttribute, value);
+        }
+      }
+      
+      // Traverse all existing elements on the page and update their attributes
+      document.querySelectorAll('*').forEach(updateElementAttributes);
+      */currentIndex
+
+      document.addEventListener('DOMContentLoaded', function() {
+        window.x_uri = document.getElementById('webpage').value;
+        if(window.x_uri){
+          console.log("going to:"+window.x_uri);
+          fetchIframe(window.x_proxy+window.x_uri);
+          window.addEventListener('hashchange', function () {
+            var message = window.location.hash.substring(1);
+            // Process the message
+        }); 
+      }
+     });
+    
+    </script> 
 </body>
 </html>
