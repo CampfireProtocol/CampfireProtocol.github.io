@@ -18,7 +18,7 @@
     <meta charset="UTF-8">
     <link rel="icon" type="image/png" href="campfire.png" onerror="this.href='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAIAAAD8GO2jAAAAfklEQVR42mP8/w+BgAAD/////GKSm0TgAAAA==';">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Browse.html</title>x`
+    <title>Campfire Browser</title>x`
     <style>
         body {  
             margin: 0;
@@ -242,7 +242,7 @@
 
        document.querySelectorAll('a').forEach(anchor => {
         const originalHref = anchor.getAttribute('href');
-        anchor.href = 'http://localhost:8020/browse.html#' + anchor.href;
+        anchor.href = 'http://localhost:8020/#' + anchor.href;
       });
       document.querySelectorAll('img').forEach(img => {
         img.src = '`+window.x_proxy+`' + img.src;
