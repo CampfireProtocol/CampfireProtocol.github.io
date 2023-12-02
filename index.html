@@ -238,18 +238,18 @@
         console.log("NOP trying ot nav:"+url);
       }
       <`+`/script>`    
-       let endtag= `<`+`script>
+      
+      var baseAddress = window.location.protocol + "//" + window.location.hostname + (window.location.port ? ':' + window.location.port : '');
 
+       let endtag= `<`+`script>
        document.querySelectorAll('a').forEach(anchor => {
         const originalHref = anchor.getAttribute('href');
-        anchor.href = 'http://localhost:8020/#' + anchor.href;
+        anchor.href = baseAddress + '#' + anchor.href;
       });
       document.querySelectorAll('img').forEach(img => {
         img.src = '`+window.x_proxy+`' + img.src;
       });
-
        </`+`script>`;
-
 
       fetchWithProxy(url)
         .then(data => {
