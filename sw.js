@@ -2,24 +2,28 @@
 
 async function fetchWithProxy(url) {
   try {
-    const response = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`);
+    const response = await fetch(`https://cdn.uartech.uk/${window.x_host}${encodeURIComponent(url)}`);
     if (response.ok) {
+      return response
+      /*
       const data = await response.json();
+      console.log(data.contents);
       return data.contents;
+      */
     } else {
-      throw new Error('Network response was not ok.');
+      throw new Error(`Failed to fetch: ${url}, status: ${response.status}`);
     }
   } catch (error) {
-    if (url.startsWith(window.x_proxy_backup)) {
-      console.log("Fetching:" + window.x_proxy_backup);
+    console.error('Error during fetchWithProxy:', error);
+    if (url.startsWith(window.x_proxy)) {
+      console.log("Fetching:" + window.x_proxy);
       return fetch(url);
     } else {
-      console.log("fetching:" + window.x_proxy_backup + url);
-      return fetch(window.x_proxy_backup + url);
+      console.log("fetching:" + window.x_proxy + url);
+      return fetch(window.x_proxy + url);
     }
   }
 }
-
 
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);

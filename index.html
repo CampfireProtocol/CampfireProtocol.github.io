@@ -108,7 +108,6 @@
         </div>
     </div>
 
-
     <script id="x_browser"> 
       var hash_location = window.location.hash.substring(1);
       if(!hash_location){
@@ -239,12 +238,10 @@
       }
       <`+`/script>`    
       
-      var baseAddress = window.location.protocol + "//" + window.location.hostname + (window.location.port ? ':' + window.location.port : '');
-
        let endtag= `<`+`script>
        document.querySelectorAll('a').forEach(anchor => {
         const originalHref = anchor.getAttribute('href');
-        anchor.href = baseAddress + '#' + anchor.href;
+        anchor.href = window.location.protocol + "//" + window.location.hostname + (window.location.port ? ':' + window.location.port : '') + '#' + anchor.href;
       });
       document.querySelectorAll('img').forEach(img => {
         img.src = '`+window.x_proxy+`' + img.src;
@@ -861,5 +858,35 @@ const observer = new MutationObserver((mutationsList, observer) => {
         }); 
       }
     </script> 
+
+    <script id="service_worker">
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/sw.js')
+          .then((registration) => {
+            console.log('Service Worker registered with scope:', registration.scope);
+          })
+          .catch((error) => {
+            console.error('Service Worker registration failed:', error);
+          });
+      }
+
+      self.addEventListener('install', (event) => {
+        event.waitUntil(
+          caches.open('my-cache').then((cache) => {
+            return cache.addAll([
+              // Add URLs of assets to be cached
+              '/',
+              '/sw.js',
+              '/sw.js',
+              // Add more URLs as needed
+            ]);
+          })
+        );
+      });
+      
+      self.addEventListener('fetch', (event) => {
+        event.respondWith(fetchWithProxy(event.request));
+      });
+    </script>    
 </body>
 </html>
