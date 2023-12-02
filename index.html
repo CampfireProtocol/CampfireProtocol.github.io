@@ -110,13 +110,14 @@
 
 
     <script id="x_browser"> 
-      const urlInput = document.getElementById('url-input');
       var hash_location = window.location.hash.substring(1);
       if(!hash_location){
         hash_location = "https://www.wikipedia.org";
-      }else{
-        document.getElementById('url-input').value = hash_location;
       }
+      document.getElementById('url-input').value = hash_location;
+    
+      window.x_uri = document.getElementById('url-input').value;
+
       const backButton = document.getElementById('back-button');
       const forwardButton = document.getElementById('forward-button');
       const refreshButton = document.getElementById('refresh-button');
@@ -850,9 +851,7 @@ const observer = new MutationObserver((mutationsList, observer) => {
   };  
     </script>
 
-
     <script>
-        window.x_uri = document.getElementById('url-input').value;
         if(window.x_uri){
          // console.log("going to:"+window.x_proxy+"/"+window.x_uri);
           x_navigate(window.x_uri);
